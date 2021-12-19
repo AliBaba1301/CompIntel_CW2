@@ -8,16 +8,20 @@ import torch.nn as nn
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
+torch.manual_seed(1)  # reproducible experiments
+
+
+# by fixing the seed you will remove randomness
 # create the NN
 class Net(nn.Module):
     # initialise one hidden layer and one output layer
-    def init(self, n_feature, n_hidden, n_output):
+    def __init__(self, n_feature, n_hidden, n_output):
         # call pytorch superclass code to initialise nn
-        super(Net, self).init()
+        super(Net, self).__init__()
         # hidden layer
-        self.hidden = nn.Sigmoid(n_feature, n_hidden)
-        self.hidden2 = nn.Sigmoid(n_hidden, n_hidden)
-        self.out = nn.Linear(n_hidden, n_output)  # output layer
+        self.hidden = torch.nn.Linear(n_feature, n_hidden)
+        self.hidden2 = torch.nn.Linear(n_hidden, n_hidden)
+        self.out = torch.nn.Linear(n_hidden, n_output)  # output layer
 
     # connect up the layers: the input passes through the hidden, then the sigmoid, then the output layer
     # x is the data
