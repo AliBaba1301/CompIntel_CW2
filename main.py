@@ -99,7 +99,7 @@ def main():
     # plot testing data as a 3D scatter plot
     scatter3D(x1arrtest, x2arrtest, yarrtest, title='Testing Data')
 
-    net = Net(n_feature=6, n_hidden=2, n_output=2)  # define the network
+    net = Net(n_feature=2, n_hidden=6, n_output=2)  # define the network
 
     # optional printouts about network
     print("printing net")
