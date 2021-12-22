@@ -151,14 +151,14 @@ def chrom2real(c, minRange, maxRange):
 # range of weights is between -20 and 20
 # 6 bits for integer part of weight and 24 bits for fractional part of weight
 # add 20 to all numbers to make sure they are positive
-# round to 7 dp then multiply by 10^7 to get rid of the decimal point
+# round to 7 dp to prevent overflow
 # convert to binary
 # convert to gray
 def real2Chrom(weights):
     chroms = []
 
     for i in range(len(weights)):
-        weights[i] = round((weights[i]+maxRange) * 10 ** 7)
+
 
         # ensures the weights are in the range of -20 and 20
         if weights[i] > maxRange:
@@ -166,11 +166,14 @@ def real2Chrom(weights):
         elif weights[i] < minRange:
             weights[i] = minRange
 
-        # split float into two parts, one for the integer part and one for the decimal part
-        integer, decimal = str((weights[i])).split('.')
+        # round to 7 dp to prevent overflow and value between 0 and 1
+        numPrepped = round((weights[i] + maxRange)/40, 7)
 
-        print(str((weights[i])).split('.'))
-        #
+        # split float into two parts, one for the integer part and one for the decimal part
+        integer, decimal = str(numPrepped).split('.')
+
+        print(str(numPrepped).split('.'))
+
         # convert the integer part to binary
         integer = bin(int(integer))[2:]
 
@@ -234,12 +237,6 @@ def main():
     weights = weightsOutofNetwork(net)
 
     print(weights[:18])
-
-    test = []
-
-    test.append(int(15))
-    test.append(int(0))
-    test.append(int(2))
 
     print(real2Chrom(weights))
 
