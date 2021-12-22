@@ -72,7 +72,7 @@ def scatter3D(x1arr, x2arr, yarr, title):
     ax.set_title(title)
     plt.show()
 
-
+# method for adjusting three random weights of the network in the input layer
 def adjustweights(weights):
     changedweights = []
 
@@ -95,7 +95,7 @@ def adjustweights(weights):
 
     return weights
 
-
+# method for reshaping a list into a np array the network will accept
 def reformList(list, rows, cols):
     list = np.reshape(list, (rows, cols))
     return list
@@ -125,8 +125,7 @@ def weightsIntoNetwork(weights, net):
     net.hidden2.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[54:60], 6, 1)))
     net.out.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[60:66], 1, 6)))
     net.out.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[66:67], 1, 1)))
-
-    # return net
+    return net
 
 
 def main():
@@ -169,7 +168,7 @@ def main():
     print(weights[0:18])
     # adjusting 3 weights in first layer and inserting them into the list
     weights = adjustweights(weights)
-    weightsIntoNetwork(weights, net)
+    net = weightsIntoNetwork(weights, net)
 
     # new weights after adjusting and adding back in
     newWeights = weightsOutofNetwork(net)
