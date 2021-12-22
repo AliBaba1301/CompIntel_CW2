@@ -8,8 +8,13 @@ import torch.nn as nn
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import random as r
+from sympy.combinatorics.graycode import gray_to_bin, bin_to_gray
 
 torch.manual_seed(1)  # reproducible experiments
+
+maxnum = 2 ** 30
+minRange = -20
+maxRange = 20
 
 
 # by fixing the seed you will remove randomness
@@ -72,6 +77,7 @@ def scatter3D(x1arr, x2arr, yarr, title):
     ax.set_title(title)
     plt.show()
 
+
 # method for adjusting three random weights of the network in the input layer
 def adjustweights(weights):
     changedweights = []
@@ -94,6 +100,7 @@ def adjustweights(weights):
     weights[change3] = weights[change3] * multiplier3
 
     return weights
+
 
 # method for reshaping a list into a np array the network will accept
 def reformList(list, rows, cols):
@@ -126,6 +133,28 @@ def weightsIntoNetwork(weights, net):
     net.out.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[60:66], 1, 6)))
     net.out.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[66:67], 1, 1)))
     return net
+
+
+def chrom2real(c, minRange, maxRange):
+    indasstring = ''.join(map(str, c))
+
+    degray = gray_to_bin(indasstring)
+    numasint = int(degray,2)  # convert to int from base 2 list
+    numinrange = minRange + (maxRange - minRange) * numasint / maxnum
+    return numinrange
+
+
+# converts a list of weights into a list with the weights as chromosomes
+def real2Chrom(weights):
+    chroms = []
+
+    for i in range(len(weights)):
+        numinrange = minRange + (maxRange - minRange) * weights[i] / maxnum
+        numInBits = bin(numinrange) # convert value to base 2
+        gray = bin_to_gray(numInBits) # convert to gray code
+        chroms.append(gray) # append to chromosome list
+
+    return chroms
 
 
 def main():
