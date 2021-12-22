@@ -148,10 +148,17 @@ def chrom2real(c, minRange, maxRange):
 
 
 # converts a list of weights into a list with the weights as chromosomes
+# range of weights is between -20 and 20
+# 6 bits for integer part of weight and 24 bits for fractional part of weight
+# add 20 to all numbers to make sure they are positive
+# round to 7 dp then multiply by 10^7 to get rid of the decimal point
+# convert to binary
+# convert to gray
 def real2Chrom(weights):
     chroms = []
 
     for i in range(len(weights)):
+        weights[i] = round((weights[i]+maxRange) * 10 ** 7)
 
         # ensures the weights are in the range of -20 and 20
         if weights[i] > maxRange:
@@ -159,7 +166,22 @@ def real2Chrom(weights):
         elif weights[i] < minRange:
             weights[i] = minRange
 
-        numInBits = bin(weights[i])[2:]  # convert value to base 2
+        # split float into two parts, one for the integer part and one for the decimal part
+        integer, decimal = str((weights[i])).split('.')
+
+        print(str((weights[i])).split('.'))
+        #
+        # convert the integer part to binary
+        integer = bin(int(integer))[2:]
+
+        decimal = bin(int(decimal))[2:]
+
+        # pad the binary with 0's to make it the correct length
+        integer = integer.zfill(6-len(integer))
+        decimal = decimal.zfill(24-len(decimal))
+
+        # combine the two parts into one string
+        numInBits = integer + decimal  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
         chroms.append(gray)  # append to chromosome list
 
@@ -209,15 +231,17 @@ def main():
     net = weightsIntoNetwork(weights, net)
 
     # new weights after adjusting and adding back in
-    newWeights = weightsOutofNetwork(net)
+    weights = weightsOutofNetwork(net)
 
-    print(newWeights[:18])
+    print(weights[:18])
 
     test = []
 
     test.append(int(15))
     test.append(int(0))
     test.append(int(2))
+
+    print(real2Chrom(weights))
 
 
 
