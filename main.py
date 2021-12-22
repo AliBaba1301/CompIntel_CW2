@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import random as r
 
 torch.manual_seed(1)  # reproducible experiments
 
@@ -72,6 +73,34 @@ def scatter3D(x1arr, x2arr, yarr, title):
     plt.show()
 
 
+def adjustweights(weights):
+    changedweights = []
+
+    change1 = r.randint(0, 18)
+    change2 = r.randint(0, 18)
+    change3 = r.randint(0, 18)
+
+    if change1 == change2:
+        change2 += 1
+    elif change2 == change3 or change1 == change3:
+        change3 += 1
+
+    multiplier1 = r.uniform(0, 1)
+    multiplier2 = r.uniform(0, 1)
+    multiplier3 = r.uniform(0, 1)
+
+    weights[change1] = weights[change1] * multiplier1
+    weights[change2] = weights[change2] * multiplier2
+    weights[change3] = weights[change3] * multiplier3
+
+    return weights
+
+
+def reformList(list, rows, cols):
+    list = np.reshape(list, (rows, cols))
+    return list
+
+
 # extract all the weights of the net and puts them into a list
 def weightsOutofNetwork(net):
     weights = []
@@ -88,20 +117,16 @@ def weightsOutofNetwork(net):
     return weightlist
 
 
-# method to get the tensor dimensions of the network
-def getTensorDimensions(net):
-    tensorDimensions = []
-    for param in net.parameters():
-        tensorDimensions.append(param.data.numpy().shape)
-    return tensorDimensions
-
-
 # takes as in a list of all weights of the network and uses them to set the weights of the network
-def weightsIntoNetwork(weights):
-    newWeights = []
+def weightsIntoNetwork(weights, net):
+    net.hidden.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[:12], 6, 2)))
+    net.hidden.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[12:18], 6, 1)))
+    net.hidden2.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[18:54], 6, 6)))
+    net.hidden2.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[54:60], 6, 1)))
+    net.out.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[60:66], 1, 6)))
+    net.out.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[66:67], 1, 1)))
 
-
-    return net
+    # return net
 
 
 def main():
@@ -140,7 +165,16 @@ def main():
 
     weights = []
     weights = weightsOutofNetwork(net)
-    weightsIntoNetwork(weights)
+    # First layer of weights
+    print(weights[0:18])
+    # adjusting 3 weights in first layer and inserting them into the list
+    weights = adjustweights(weights)
+    weightsIntoNetwork(weights, net)
+
+    # new weights after adjusting and adding back in
+    newWeights = weightsOutofNetwork(net)
+
+    print(newWeights[:18])
 
 
 if __name__ == "__main__":
