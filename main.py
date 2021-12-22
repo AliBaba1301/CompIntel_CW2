@@ -139,7 +139,7 @@ def chrom2real(c, minRange, maxRange):
     indasstring = ''.join(map(str, c))
 
     degray = gray_to_bin(indasstring)
-    numasint = int(degray,2)  # convert to int from base 2 list
+    numasint = int(degray, 2)  # convert to int from base 2 list
     numinrange = minRange + (maxRange - minRange) * numasint / maxnum
     return numinrange
 
@@ -149,10 +149,17 @@ def real2Chrom(weights):
     chroms = []
 
     for i in range(len(weights)):
+
+        # ensures the weights are in the range of -20 and 20
+        if weights[i] > maxRange:
+            weights[i] = maxRange
+        elif weights[i] < minRange:
+            weights[i] = minRange
+
         numinrange = minRange + (maxRange - minRange) * weights[i] / maxnum
-        numInBits = bin(numinrange) # convert value to base 2
-        gray = bin_to_gray(numInBits) # convert to gray code
-        chroms.append(gray) # append to chromosome list
+        numInBits = bin(numinrange)  # convert value to base 2
+        gray = bin_to_gray(numInBits)  # convert to gray code
+        chroms.append(gray)  # append to chromosome list
 
     return chroms
 
