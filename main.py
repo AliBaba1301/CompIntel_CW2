@@ -72,11 +72,44 @@ def scatter3D(x1arr, x2arr, yarr, title):
     plt.show()
 
 
+# extract all the weights of the net and puts them into a list
+def weightsOutofNetwork(net):
+    weights = []
+    weightlist = []
+
+    for param in net.parameters():
+        weights.append(param.data.numpy().flatten())
+
+    # flatteing the weights into a 2d array with tensor values assigned to each weight
+    for i in range(len(weights)):
+        for j in range(len(weights[i])):
+            weightlist.append(weights[i][j])
+
+    return weightlist
+
+
+# method to get the tensor dimensions of the network
+def getTensorDimensions(net):
+    tensorDimensions = []
+    for param in net.parameters():
+        tensorDimensions.append(param.data.numpy().shape)
+    return tensorDimensions
+
+
+# takes as in a list of all weights of the network and uses them to set the weights of the network
+def weightsIntoNetwork(weights):
+    newWeights = []
+
+
+    return net
+
+
 def main():
     # creating dataset in order to train and test the model
     # creating 1100 random values for x1 and x2 between -1 and 1
     x1arr = np.random.uniform(-1, 1, 1100)
     x2arr = np.random.uniform(-1, 1, 1100)
+
     # creating a list of the function values
     yarr = function(x1arr, x2arr)
 
@@ -99,11 +132,15 @@ def main():
     # plot testing data as a 3D scatter plot
     scatter3D(x1arrtest, x2arrtest, yarrtest, title='Testing Data')
 
-    net = Net(n_feature=2, n_hidden=6, n_output=2)  # define the network
+    net = Net(n_feature=2, n_hidden=6, n_output=1)  # define the network
 
     # optional printouts about network
     print("printing net")
     print(net)  # net architecture
+
+    weights = []
+    weights = weightsOutofNetwork(net)
+    weightsIntoNetwork(weights)
 
 
 if __name__ == "__main__":
