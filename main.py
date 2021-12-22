@@ -135,6 +135,9 @@ def weightsIntoNetwork(weights, net):
     return net
 
 
+# Convert chromosome to real number
+# input: list binary 1,0 of length numOfBits representing number using gray  coding
+# output: real value of chromosome
 def chrom2real(c, minRange, maxRange):
     indasstring = ''.join(map(str, c))
 
@@ -156,8 +159,7 @@ def real2Chrom(weights):
         elif weights[i] < minRange:
             weights[i] = minRange
 
-        numinrange = minRange + (maxRange - minRange) * weights[i] / maxnum
-        numInBits = bin(numinrange)  # convert value to base 2
+        numInBits = bin(weights[i])[2:]  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
         chroms.append(gray)  # append to chromosome list
 
@@ -210,6 +212,13 @@ def main():
     newWeights = weightsOutofNetwork(net)
 
     print(newWeights[:18])
+
+    test = []
+
+    test.append(int(15))
+    test.append(int(0))
+    test.append(int(2))
+
 
 
 if __name__ == "__main__":
