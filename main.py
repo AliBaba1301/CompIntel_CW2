@@ -12,7 +12,8 @@ from sympy.combinatorics.graycode import gray_to_bin, bin_to_gray
 
 torch.manual_seed(1)  # reproducible experiments
 
-maxnum = 2 ** 30
+numOfBits = 30
+maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
 
@@ -138,18 +139,17 @@ def weightsIntoNetwork(weights, net):
 # Convert chromosome to real number
 # input: list binary 1,0 of length numOfBits representing number using gray  coding
 # output: real value of chromosome
-def chrom2real(c, minRange, maxRange):
+def chrom2real(c):
     indasstring = ''.join(map(str, c))
-
     degray = gray_to_bin(indasstring)
     numasint = int(degray, 2)  # convert to int from base 2 list
-    numinrange = minRange + (maxRange - minRange) * numasint / maxnum
+    numinrange = round(minRange + (maxRange - minRange) * numasint / maxnum, 7)
+
     return numinrange
 
 
 # converts a list of weights into a list with the weights as chromosomes
 # range of weights is between -20 and 20
-# 6 bits for integer part of weight and 24 bits for fractional part of weight
 # add 20 to all numbers to make sure they are positive
 # round to 7 dp to prevent overflow
 # convert to binary
@@ -159,32 +159,23 @@ def real2Chrom(weights):
 
     for i in range(len(weights)):
 
-
         # ensures the weights are in the range of -20 and 20
         if weights[i] > maxRange:
             weights[i] = maxRange
         elif weights[i] < minRange:
             weights[i] = minRange
 
-        # round to 7 dp to prevent overflow and value between 0 and 1
-        numPrepped = round((weights[i] + maxRange)/40, 7)
-
-        # split float into two parts, one for the integer part and one for the decimal part
-        integer, decimal = str(numPrepped).split('.')
-
-        print(str(numPrepped).split('.'))
+        # rounding value to prevent overflow and value between 0 and 1
+        numPrepped = round(((weights[i] + maxRange) / (maxRange - minRange) * maxnum))
 
         # convert the integer part to binary
-        integer = bin(int(integer))[2:]
-
-        decimal = bin(int(decimal))[2:]
+        integer = bin(int(numPrepped))[2:]
 
         # pad the binary with 0's to make it the correct length
-        integer = integer.zfill(6-len(integer))
-        decimal = decimal.zfill(24-len(decimal))
+        integer = integer.zfill(numOfBits)
 
         # combine the two parts into one string
-        numInBits = integer + decimal  # convert value to base 2
+        numInBits = integer  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
         chroms.append(gray)  # append to chromosome list
 
@@ -238,8 +229,8 @@ def main():
 
     print(weights[:18])
 
-    print(real2Chrom(weights))
-
+    for test in [-19, 45, -21, 8.37523, 7, 2.26423223]:
+        print("test", chrom2real(real2Chrom([test])))
 
 
 if __name__ == "__main__":
