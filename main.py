@@ -150,8 +150,6 @@ def chrom2real(c):
 
 # converts a list of weights into a list with the weights as chromosomes
 # range of weights is between -20 and 20
-# add 20 to all numbers to make sure they are positive
-# round to 7 dp to prevent overflow
 # convert to binary
 # convert to gray
 def real2Chrom(weights):
@@ -180,6 +178,27 @@ def real2Chrom(weights):
         chroms.append(gray)  # append to chromosome list
 
     return chroms
+
+
+# an evaluation function to return the mean squared error of the network on the test data for a given generation
+def evaluate(net, x1test, x2test, ytest, chroms):
+    # convert chromosomes to real numbers
+    weights = []
+    loss = nn.MSELoss()
+
+    for i in range(len(chroms)):
+        weights.append(chrom2real(chroms[i]))
+
+    # set the weights of the network to the weights in the chromosome
+    net = weightsIntoNetwork(weights, net)
+
+    # get the output of the network
+    output = net(x1test, x2test)
+
+    # calculate the error
+    error = loss(output, ytest)
+
+    return error
 
 
 def main():
@@ -228,9 +247,6 @@ def main():
     weights = weightsOutofNetwork(net)
 
     print(weights[:18])
-
-    for test in [-19, 45, -21, 8.37523, 7, 2.26423223]:
-        print("test", chrom2real(real2Chrom([test])))
 
 
 if __name__ == "__main__":
