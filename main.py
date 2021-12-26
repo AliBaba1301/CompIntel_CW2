@@ -16,6 +16,7 @@ numOfBits = 30
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
+generations = 100
 
 
 # by fixing the seed you will remove randomness
@@ -238,7 +239,6 @@ def main():
     weights = []
     weights = weightsOutofNetwork(net)
     # First layer of weights
-    print(weights[0:18])
     # adjusting 3 weights in first layer and inserting them into the list
     weights = adjustweights(weights)
     net = weightsIntoNetwork(weights, net)
@@ -246,7 +246,26 @@ def main():
     # new weights after adjusting and adding back in
     weights = weightsOutofNetwork(net)
 
-    print(weights[:18])
+    # initialize the population
+    initial_weights = weightsOutofNetwork(net)
+
+    # genetic algorithm for training the network
+    # creating a population of chromosomes
+    population = real2Chrom(initial_weights)
+
+    current_weights = initial_weights
+
+    # creating a list of the fitness of each chromosome
+    fitness = []
+    for generation in range(generations):
+
+        fitness.append(evaluate(net, x1arrtrain, x2arrtrain, yarrtrain, population))
+
+        current_weights = adjustweights(current_weights)
+        population = real2Chrom(current_weights)
+        print("Generation: ", generation, " Fitness: ", fitness)
+
+
 
 
 if __name__ == "__main__":
