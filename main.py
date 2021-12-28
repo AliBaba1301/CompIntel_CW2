@@ -9,6 +9,8 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import random as r
 from sympy.combinatorics.graycode import gray_to_bin, bin_to_gray
+import deap
+from deap import base, creator, tools, algorithms
 
 torch.manual_seed(1)  # reproducible experiments
 
@@ -17,6 +19,9 @@ maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
 generations = 100
+batch_size = 100
+flipProb = 0.1
+loss = nn.MSELoss()
 
 
 # by fixing the seed you will remove randomness
@@ -37,6 +42,7 @@ class Net(nn.Module):
         # activation function for hidden layer is sigmoid
         # data passes through hidden and sigmoid
         x = nn.functional.sigmoid(self.hidden(x))
+        x = nn.functional.sigmoid(self.hidden2(x))
         # the result needs to pass through output layer next
         x = self.out(x)
         return x
@@ -75,7 +81,7 @@ def scatter3D(x1arr, x2arr, yarr, title):
     ax.scatter(x1arr, x2arr, yarr, c=yarr, marker='o')
     ax.set_xlabel('x1')
     ax.set_ylabel('x2')
-    ax.set_zlabel('z')
+    ax.set_zlabel('y')
     ax.set_title(title)
     plt.show()
 
@@ -145,7 +151,6 @@ def chrom2real(c):
     degray = gray_to_bin(indasstring)
     numasint = int(degray, 2)  # convert to int from base 2 list
     numinrange = round(minRange + (maxRange - minRange) * numasint / maxnum, 7)
-
     return numinrange
 
 
@@ -181,11 +186,11 @@ def real2Chrom(weights):
     return chroms
 
 
-# an evaluation function to return the mean squared error of the network on the test data for a given generation
-def evaluate(net, x1test, x2test, ytest, chroms):
+# an evaluation function to return the mean squared error of the network on the data provided for a given generation
+def evaluate(net, input, target, chroms):
     # convert chromosomes to real numbers
+    chroms = reformList(chroms,67,30)
     weights = []
-    loss = nn.MSELoss()
 
     for i in range(len(chroms)):
         weights.append(chrom2real(chroms[i]))
@@ -194,12 +199,66 @@ def evaluate(net, x1test, x2test, ytest, chroms):
     net = weightsIntoNetwork(weights, net)
 
     # get the output of the network
-    output = net(x1test, x2test)
+    print(weights)
+    output = net(input)
+
+    print(output)
 
     # calculate the error
-    error = loss(output, ytest)
+    error = loss(output, target)
 
     return error
+
+
+def plotFitness(loss_list):
+    plt.plot(loss_list)
+    plt.set_xlabel('Generation')
+    plt.set_ylabel('Loss')
+    plt.title('Loss per Generation')
+    plt.show()
+
+
+toolbox = base.Toolbox()
+creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+creator.create("Individual", list, fitness=creator.FitnessMin)
+
+# Attribute generator
+#                      define 'attr_bool' to be an attribute ('gene')
+#                      which corresponds to integers sampled uniformly
+#                      from the range [0,1] (i.e. 0 or 1 with equal
+#                      probability)
+toolbox.register("attr_bool", r.randint, 0, 1)
+
+# Structure initializers
+#                         define 'individual' to be an individual
+#                         consisting of numOfBitsdimension 'attr_bool' elements ('genes')
+toolbox.register("individual", tools.initRepeat, creator.Individual,
+                 toolbox.attr_bool, 2010)
+
+# define the population to be a list of individuals
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+# ----------
+# Operator registration
+# ----------
+# register the goal / fitness function
+toolbox.register("evaluate", evaluate)
+
+# register the crossover operator
+toolbox.register("mate", tools.cxTwoPoint)
+
+# register a mutation operator with a probability to
+# flip each attribute/gene of 0.05
+toolbox.register("mutate", tools.mutFlipBit, indpb=flipProb)
+
+# operator for selecting individuals for breeding the next
+# generation: each individual of the current generation
+# is replaced by the 'fittest' (best) of three individuals
+# drawn randomly from the current generation.
+toolbox.register("select", tools.selRoulette, fit_attr='fitness')
+
+
+# ----------
 
 
 def main():
@@ -208,6 +267,7 @@ def main():
     x1arr = np.random.uniform(-1, 1, 1100)
     x2arr = np.random.uniform(-1, 1, 1100)
 
+
     # creating a list of the function values
     yarr = function(x1arr, x2arr)
 
@@ -215,20 +275,26 @@ def main():
     visualfunction(x1arr, x2arr, 'All Data')
 
     # creating a list of the training data
-    x1arrtrain = torch.as_tensor(x1arr[:1000], dtype=torch.double)
-    x2arrtrain = torch.as_tensor(x2arr[:1000], dtype=torch.double)
-    yarrtrain = torch.as_tensor(yarr[:1000], dtype=torch.double)
+    inputTraining = np.array([x1arr[:1000], x2arr[:1000]])
+    inputTrainingTensor = torch.from_numpy(inputTraining)
+    inputTrainingTensor = torch.transpose(inputTrainingTensor, 1, 0)
 
-    # plot the training data as a 3D scatter plot
-    scatter3D(x1arrtrain, x2arrtrain, yarrtrain, title='Training Data')
+    targetTraining = np.array(yarr[:1000])
+    targetTrainingTensor = torch.from_numpy(targetTraining)
+
+    # Not needed anymore # plot the training data as a 3D scatter plot
+    # scatter3D(x1arrtrain, x2arrtrain, yarrtrain, title='Training Data')
 
     # creating a list of the testing data
-    x1arrtest = torch.as_tensor(x1arr[1000:1100], dtype=torch.double)
-    x2arrtest = torch.as_tensor(x2arr[1000:1100], dtype=torch.double)
-    yarrtest = torch.as_tensor(yarr[1000:1100], dtype=torch.double)
+    inputTesting = np.array([x1arr[1000:1100], x2arr[1000:1100]])
+    inputTestingTensor = torch.from_numpy(inputTesting)
+    inputTestingTensor = torch.transpose(inputTestingTensor, 1, 0)
 
-    # plot testing data as a 3D scatter plot
-    scatter3D(x1arrtest, x2arrtest, yarrtest, title='Testing Data')
+    targetTesting = np.array(yarr[1000:1100])
+    targetTestingTensor = torch.from_numpy(targetTesting)
+
+    # Not needed anymore # plot testing data as a 3D scatter plot
+    # scatter3D(x1arrtest, x2arrtest, yarrtest, title='Testing Data')
 
     net = Net(n_feature=2, n_hidden=6, n_output=1)  # define the network
 
@@ -256,15 +322,18 @@ def main():
     current_weights = initial_weights
 
     # creating a list of the fitness of each chromosome
+    pop = toolbox.population(n=100)  # Population Size
     fitness = []
-    for generation in range(generations):
-
-        fitness.append(evaluate(net, x1arrtrain, x2arrtrain, yarrtrain, population))
+    for individual in pop:
+        # train the network on the training data
+        fitness.append(evaluate(net, inputTrainingTensor, targetTrainingTensor,individual))
 
         current_weights = adjustweights(current_weights)
         population = real2Chrom(current_weights)
-        print("Generation: ", generation, " Fitness: ", fitness)
+        # print("Generation: ", generation, " Fitness: ", fitness[generation])
 
+    # plot the fitness of each chromosome
+    # plotFitness(fitness, generation)
 
 
 
