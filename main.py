@@ -20,7 +20,7 @@ minRange = -20
 maxRange = 20
 generations = 100
 batch_size = 100
-flipProb = 0.1
+cxPB = 0.1
 loss = nn.MSELoss()
 
 
@@ -124,7 +124,6 @@ def weightsOutofNetwork(net):
     for param in net.parameters():
         weights.append(param.data.numpy().flatten())
 
-    # flatteing the weights into a 2d array with tensor values assigned to each weight
     for i in range(len(weights)):
         for j in range(len(weights[i])):
             weightlist.append(weights[i][j])
@@ -135,12 +134,11 @@ def weightsOutofNetwork(net):
 # takes as in a list of all weights of the network and uses them to set the weights of the network
 def weightsIntoNetwork(weights, net):
     net.hidden.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[:12], 6, 2)))
-    net.hidden.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[12:18], 6, 1)))
+    net.hidden.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[12:18], 1, 6)))
     net.hidden2.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[18:54], 6, 6)))
-    net.hidden2.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[54:60], 6, 1)))
+    net.hidden2.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[54:60], 1, 6)))
     net.out.weight = torch.nn.Parameter(torch.from_numpy(reformList(weights[60:66], 1, 6)))
     net.out.bias = torch.nn.Parameter(torch.from_numpy(reformList(weights[66:67], 1, 1)))
-    return net
 
 
 # Convert chromosome to real number
@@ -151,6 +149,12 @@ def chrom2real(c):
     degray = gray_to_bin(indasstring)
     numasint = int(degray, 2)  # convert to int from base 2 list
     numinrange = round(minRange + (maxRange - minRange) * numasint / maxnum, 7)
+    # ensures the weights are in the range of -20 and 20
+    if numinrange > maxRange:
+        numinrange = maxRange
+    elif numinrange < minRange:
+        numinrange = minRange
+
     return numinrange
 
 
@@ -189,32 +193,29 @@ def real2Chrom(weights):
 # an evaluation function to return the mean squared error of the network on the data provided for a given generation
 def evaluate(net, input, target, chroms):
     # convert chromosomes to real numbers
-    chroms = reformList(chroms,67,30)
+    chroms = reformList(chroms, 67, 30)
     weights = []
 
     for i in range(len(chroms)):
         weights.append(chrom2real(chroms[i]))
 
     # set the weights of the network to the weights in the chromosome
-    net = weightsIntoNetwork(weights, net)
+    weightsIntoNetwork(weights, net)
 
     # get the output of the network
-    print(weights)
     output = net(input)
-
-    print(output)
 
     # calculate the error
     error = loss(output, target)
 
-    return error
+    return error.item()
 
 
-def plotFitness(loss_list):
-    plt.plot(loss_list)
-    plt.set_xlabel('Generation')
-    plt.set_ylabel('Loss')
-    plt.title('Loss per Generation')
+def plotFitness(loss_list,generation):
+    plt.plot(generation, loss_list)
+    # .set_xlabel('Generation')
+    # plt.set_ylabel('Loss')
+    # plt.title('Loss per Generation')
     plt.show()
 
 
@@ -249,7 +250,7 @@ toolbox.register("mate", tools.cxTwoPoint)
 
 # register a mutation operator with a probability to
 # flip each attribute/gene of 0.05
-toolbox.register("mutate", tools.mutFlipBit, indpb=flipProb)
+toolbox.register("mutate", tools.mutFlipBit, indpb=cxPB)
 
 # operator for selecting individuals for breeding the next
 # generation: each individual of the current generation
@@ -266,7 +267,6 @@ def main():
     # creating 1100 random values for x1 and x2 between -1 and 1
     x1arr = np.random.uniform(-1, 1, 1100)
     x2arr = np.random.uniform(-1, 1, 1100)
-
 
     # creating a list of the function values
     yarr = function(x1arr, x2arr)
@@ -304,10 +304,12 @@ def main():
 
     weights = []
     weights = weightsOutofNetwork(net)
+
     # First layer of weights
     # adjusting 3 weights in first layer and inserting them into the list
     weights = adjustweights(weights)
-    net = weightsIntoNetwork(weights, net)
+
+    weightsIntoNetwork(weights, net)
 
     # new weights after adjusting and adding back in
     weights = weightsOutofNetwork(net)
@@ -323,18 +325,21 @@ def main():
 
     # creating a list of the fitness of each chromosome
     pop = toolbox.population(n=100)  # Population Size
+    new_net = Net(n_feature=2, n_hidden=6, n_output=1)
     fitness = []
-    for individual in pop:
+    gen = []
+
+    for i in range(len(pop)):
         # train the network on the training data
-        fitness.append(evaluate(net, inputTrainingTensor, targetTrainingTensor,individual))
+        print("Generation: ", i)
+        gen.append(i)
+        fitness.append(toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor, pop[i]))
 
         current_weights = adjustweights(current_weights)
         population = real2Chrom(current_weights)
-        # print("Generation: ", generation, " Fitness: ", fitness[generation])
 
     # plot the fitness of each chromosome
-    # plotFitness(fitness, generation)
-
+    plotFitness(fitness,gen)
 
 
 if __name__ == "__main__":
