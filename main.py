@@ -9,19 +9,21 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import random as r
 from sympy.combinatorics.graycode import gray_to_bin, bin_to_gray
-import deap
 from deap import base, creator, tools, algorithms
 
 torch.manual_seed(1)  # reproducible experiments
 
 numOfBits = 30
+dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 100
-batch_size = 100
-cxPB = 0.1
+generations = 1000
+cxPB = 0.4
 loss = nn.MSELoss()
+flipPB = 1/(dimensions*numOfBits)
+mutatePB = 0.1
+nElitists = 1
 
 
 # by fixing the seed you will remove randomness
@@ -191,9 +193,9 @@ def real2Chrom(weights):
 
 
 # an evaluation function to return the mean squared error of the network on the data provided for a given generation
-def evaluate(net, input, target, chroms):
+def evaluate(net, input, target,ind):
     # convert chromosomes to real numbers
-    chroms = reformList(chroms, 67, 30)
+    chroms = reformList(ind, 67, 30)
     weights = []
 
     for i in range(len(chroms)):
@@ -208,14 +210,11 @@ def evaluate(net, input, target, chroms):
     # calculate the error
     error = loss(output, target)
 
-    return error.item()
+    return error.item(),
 
 
-def plotFitness(loss_list,generation):
+def plotFitness(loss_list, generation):
     plt.plot(generation, loss_list)
-    # .set_xlabel('Generation')
-    # plt.set_ylabel('Loss')
-    # plt.title('Loss per Generation')
     plt.show()
 
 
@@ -250,13 +249,13 @@ toolbox.register("mate", tools.cxTwoPoint)
 
 # register a mutation operator with a probability to
 # flip each attribute/gene of 0.05
-toolbox.register("mutate", tools.mutFlipBit, indpb=cxPB)
+toolbox.register("mutate", tools.mutFlipBit, indpb=flipPB)
 
 # operator for selecting individuals for breeding the next
 # generation: each individual of the current generation
 # is replaced by the 'fittest' (best) of three individuals
 # drawn randomly from the current generation.
-toolbox.register("select", tools.selRoulette, fit_attr='fitness')
+toolbox.register("select", tools.selBest, fit_attr='fitness')
 
 
 # ----------
@@ -319,27 +318,79 @@ def main():
 
     # genetic algorithm for training the network
     # creating a population of chromosomes
-    population = real2Chrom(initial_weights)
 
-    current_weights = initial_weights
-
-    # creating a list of the fitness of each chromosome
     pop = toolbox.population(n=100)  # Population Size
     new_net = Net(n_feature=2, n_hidden=6, n_output=1)
     fitness = []
     gen = []
+    best_fitness = []
+    test_score = []
 
-    for i in range(len(pop)):
-        # train the network on the training data
-        print("Generation: ", i)
-        gen.append(i)
-        fitness.append(toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor, pop[i]))
+    for g in range(generations):
 
-        current_weights = adjustweights(current_weights)
-        population = real2Chrom(current_weights)
+        print("Generation: %i" %g)
+        gen.append(g)
+        for i in range(len(pop)):
+            # train the network on the training data
+            fitness.append(toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor,pop[i])[0])
 
-    # plot the fitness of each chromosome
-    plotFitness(fitness,gen)
+        # Select the next generation individuals
+        offspring = toolbox.select(pop, len(pop) - nElitists) + tools.selBest(pop, nElitists)
+        # Clone the selected individuals
+        offspring = list(map(toolbox.clone, offspring))
+
+        #         for individ in offspring:
+        #             print(individ)
+
+        # Apply crossover and mutation on the offspring
+        # make pairs of offspring for crossing over
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+
+            # cross two individuals with probability CXPB
+            if r.random() < cxPB:
+                # print('before crossover ',child1, child2)
+                toolbox.mate(child1, child2)
+                # print('after crossover ',child1, child2)
+
+                # fitness values of the children
+                # must be recalculated later
+                del child1.fitness.values
+                del child2.fitness.values
+
+        for mutant in offspring:
+
+            # mutate an individual with probability mutateprob
+            if r.random() < mutatePB:
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
+
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        for ind in invalid_ind:
+            ind.fitness.value = toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor,ind)[0]
+
+        # best unique individual
+        best_ind = tools.selBest(pop, 1)[0]
+        # The population is entirely replaced by the offspring
+        pop[:] = offspring
+
+        best_fitness.append(min(fitness))
+
+        # adding in test data
+        score = evaluate(new_net, inputTestingTensor, targetTestingTensor, best_ind)[0]
+        test_score.append(score)
+
+
+
+
+
+    # plot the fittest chromosome of each generation
+    plotFitness(best_fitness, gen)
+
+    # plot the test score of each generation
+    plotFitness(test_score, gen)
+
+
 
 
 if __name__ == "__main__":
