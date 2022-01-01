@@ -262,6 +262,24 @@ def plotFitness(loss_list, generation):
     plt.plot(generation, loss_list)
     plt.show()
 
+def nn3dSurface():
+    nnYArr = main_net(inputTensor)
+    nnYArr = nnYArr.detach().numpy()
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+
+    # create the surface
+    surfaceplot = ax.plot_surface(x1arr, x2arr, nnYArr, rstride=1, cstride=1, cmap=cm.viridis, alpha=0.8, linewidth=0,
+                                  antialiased=False)
+    ax.view_init(45, 45)
+    ax.set_xlabel('x1')
+    ax.set_ylabel('x2')
+    ax.set_zlabel('y')
+    ax.set_title('3D Neural Network Surface Plot')
+    ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+    fig.colorbar(surfaceplot, shrink=0.5)
+    plt.show()
+
+
 
 toolbox = base.Toolbox()
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -428,6 +446,8 @@ def main():
     # plot the test score of each generation
     plotFitness(test_score, gen)
     print(min(test_score))
+
+    nn3dSurface()
 
 
 if __name__ == "__main__":
