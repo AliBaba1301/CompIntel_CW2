@@ -18,12 +18,13 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 1000
-cxPB = 0.4
+generations = 100
+cxPB = 0.6
 loss = nn.MSELoss()
-flipPB = 1/(dimensions*numOfBits)
+flipPB = 1 / (dimensions * numOfBits)
 mutatePB = 0.1
 nElitists = 1
+dspInterval = 1
 
 
 # by fixing the seed you will remove randomness
@@ -74,6 +75,28 @@ def visualfunction(x1arr, x2arr, title):
     ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
     fig.colorbar(surfaceplot, shrink=0.5)
     plt.show()
+
+
+# creating dataset in order to train and test the model
+# creating 1100 random values for x1 and x2 between -1 and 1
+x1arr = np.random.uniform(-1, 1, 1100)
+x2arr = np.random.uniform(-1, 1, 1100)
+
+# creating a list of the function values
+yarr = function(x1arr, x2arr)
+
+# create a 3d plot of the function
+visualfunction(x1arr, x2arr, 'All Data')
+
+# creating a list of the training data
+input = np.array([x1arr, x2arr])
+inputTensor = torch.from_numpy(input)
+inputTensor = torch.transpose(inputTensor, 1, 0)
+
+target = np.array(yarr)
+targetTensor = torch.from_numpy(target)
+main_net = Net(n_feature=2, n_hidden=6, n_output=1)
+
 
 
 # plots a 3D scatter plot
@@ -193,22 +216,44 @@ def real2Chrom(weights):
 
 
 # an evaluation function to return the mean squared error of the network on the data provided for a given generation
-def evaluate(net, input, target,ind):
+def evaluate(ind):
     # convert chromosomes to real numbers
     chroms = reformList(ind, 67, 30)
     weights = []
+    for i in chroms:
+        weights.append(chrom2real(i))
 
-    for i in range(len(chroms)):
-        weights.append(chrom2real(chroms[i]))
-
+    weights = np.asarray(weights)
     # set the weights of the network to the weights in the chromosome
-    weightsIntoNetwork(weights, net)
+    weightsIntoNetwork(weights, main_net)
 
     # get the output of the network
-    output = net(input)
+    output = main_net(inputTensor[:1000])
+    test_output = main_net(inputTensor[1000:1100])
 
     # calculate the error
-    error = loss(output, target)
+    error = loss(output.reshape(-1), targetTensor[:1000])
+    test_error = loss(test_output.reshape(-1), targetTensor[1000:1100])
+
+    return error.item(),
+
+
+def evaluateTest(ind):
+    # convert chromosomes to real numbers
+    chroms = reformList(ind, 67, 30)
+    weights = []
+    for i in chroms:
+        weights.append(chrom2real(i))
+
+    weights = np.asarray(weights)
+    # set the weights of the network to the weights in the chromosome
+    weightsIntoNetwork(weights, main_net)
+
+    # get the output of the network
+    test_output = main_net(inputTensor[1000:1100])
+
+    # calculate the error
+    error = loss(test_output.reshape(-1), targetTensor[1000:1100])
 
     return error.item(),
 
@@ -233,7 +278,7 @@ toolbox.register("attr_bool", r.randint, 0, 1)
 #                         define 'individual' to be an individual
 #                         consisting of numOfBitsdimension 'attr_bool' elements ('genes')
 toolbox.register("individual", tools.initRepeat, creator.Individual,
-                 toolbox.attr_bool, 2010)
+                 toolbox.attr_bool, dimensions * numOfBits)
 
 # define the population to be a list of individuals
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -262,36 +307,6 @@ toolbox.register("select", tools.selBest, fit_attr='fitness')
 
 
 def main():
-    # creating dataset in order to train and test the model
-    # creating 1100 random values for x1 and x2 between -1 and 1
-    x1arr = np.random.uniform(-1, 1, 1100)
-    x2arr = np.random.uniform(-1, 1, 1100)
-
-    # creating a list of the function values
-    yarr = function(x1arr, x2arr)
-
-    # create a 3d plot of the function
-    visualfunction(x1arr, x2arr, 'All Data')
-
-    # creating a list of the training data
-    inputTraining = np.array([x1arr[:1000], x2arr[:1000]])
-    inputTrainingTensor = torch.from_numpy(inputTraining)
-    inputTrainingTensor = torch.transpose(inputTrainingTensor, 1, 0)
-
-    targetTraining = np.array(yarr[:1000])
-    targetTrainingTensor = torch.from_numpy(targetTraining)
-
-    # Not needed anymore # plot the training data as a 3D scatter plot
-    # scatter3D(x1arrtrain, x2arrtrain, yarrtrain, title='Training Data')
-
-    # creating a list of the testing data
-    inputTesting = np.array([x1arr[1000:1100], x2arr[1000:1100]])
-    inputTestingTensor = torch.from_numpy(inputTesting)
-    inputTestingTensor = torch.transpose(inputTestingTensor, 1, 0)
-
-    targetTesting = np.array(yarr[1000:1100])
-    targetTestingTensor = torch.from_numpy(targetTesting)
-
     # Not needed anymore # plot testing data as a 3D scatter plot
     # scatter3D(x1arrtest, x2arrtest, yarrtest, title='Testing Data')
 
@@ -320,24 +335,48 @@ def main():
     # creating a population of chromosomes
 
     pop = toolbox.population(n=100)  # Population Size
-    new_net = Net(n_feature=2, n_hidden=6, n_output=1)
-    fitness = []
     gen = []
     best_fitness = []
     test_score = []
 
-    for g in range(generations):
+    # Evaluate the entire population
+    fitnesses = list(map(toolbox.evaluate, pop))
+    # print(fitnesses)
+    for ind, fit in zip(pop, fitnesses):
+        # print(ind, fit)
+        ind.fitness.values = fit
 
-        print("Generation: %i" %g)
+    print("  Evaluated %i individuals" % len(pop))
+
+    # Extracting all the fitnesses of
+    fits = [ind.fitness.values[0] for ind in pop]
+
+    bestInitial = tools.selBest(pop, 1)[0].fitness.values[0]
+
+    # Variable keeping track of the number of generations
+    g = 0
+
+    # Begin the evolution
+    while g < generations:
+        # A new generation
         gen.append(g)
-        for i in range(len(pop)):
-            # train the network on the training data
-            fitness.append(toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor,pop[i])[0])
+        g = g + 1
+        print("-- Generation %i --" % g)
+        #         for individ in pop:
+        #             print(individ)
 
         # Select the next generation individuals
-        offspring = toolbox.select(pop, len(pop) - nElitists) + tools.selBest(pop, nElitists)
+        offspring = tools.selBest(pop, nElitists) + toolbox.select(pop, len(pop) - nElitists)
         # Clone the selected individuals
         offspring = list(map(toolbox.clone, offspring))
+
+        # Selecting the best individual from the population
+        best_ind = tools.selBest(pop, 1)[0]
+        fitnessForBestIndividual = best_ind.fitness.values
+        # adding fitness of best individual to list
+        best_fitness.append(fitnessForBestIndividual)
+        # adding test score of best individual to list
+        test_score.append(evaluateTest(best_ind))
 
         #         for individ in offspring:
         #             print(individ)
@@ -366,31 +405,29 @@ def main():
 
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        for ind in invalid_ind:
-            ind.fitness.value = toolbox.evaluate(new_net, inputTrainingTensor, targetTrainingTensor,ind)[0]
+        fitnesses = map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
-        # best unique individual
-        best_ind = tools.selBest(pop, 1)[0]
+        # print("  Evaluated %i individuals" % len(invalid_ind))
+
         # The population is entirely replaced by the offspring
         pop[:] = offspring
 
-        best_fitness.append(min(fitness))
+        if g % dspInterval == 0:
+            # Gather all the fitnesses in one list and print the stats
+            fits = [ind.fitness.values[0] for ind in pop]
 
-        # adding in test data
-        score = evaluate(new_net, inputTestingTensor, targetTestingTensor, best_ind)[0]
-        test_score.append(score)
-
-
-
+            length = len(pop)
 
 
     # plot the fittest chromosome of each generation
     plotFitness(best_fitness, gen)
+    print(min(best_fitness))
 
     # plot the test score of each generation
     plotFitness(test_score, gen)
-
-
+    print(min(test_score))
 
 
 if __name__ == "__main__":
