@@ -18,7 +18,7 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 100
+generations = 10000
 cxPB = 0.6
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
@@ -96,7 +96,6 @@ inputTensor = torch.transpose(inputTensor, 1, 0)
 target = np.array(yarr)
 targetTensor = torch.from_numpy(target)
 main_net = Net(n_feature=2, n_hidden=6, n_output=1)
-
 
 
 # plots a 3D scatter plot
@@ -262,13 +261,31 @@ def plotFitness(loss_list, generation):
     plt.plot(generation, loss_list)
     plt.show()
 
-def nn3dSurface():
-    nnYArr = main_net(inputTensor)
+
+def nn3dSurface(chrom):
+    chrom = reformList(chrom, 67, 30)
+    weights = []
+    for i in chrom:
+        weights.append(chrom2real(i))
+
+    weights = np.asarray(weights)
+    # set the weights of the network to the weights in the chromosome
+    weightsIntoNetwork(weights, main_net)
+
+    x = np.linspace(-1, 1, 100)
+    y = np.linspace(-1, 1, 100)
+    x1, x2 = np.meshgrid(x, y)
+
+    xy = np.array([x, y])
+    xyTensor = torch.from_numpy(xy)
+    xyTensor = torch.transpose(xyTensor, 1, 0)
+
+    nnYArr = main_net(xyTensor)
     nnYArr = nnYArr.detach().numpy()
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
     # create the surface
-    surfaceplot = ax.plot_surface(x1arr, x2arr, nnYArr, rstride=1, cstride=1, cmap=cm.viridis, alpha=0.8, linewidth=0,
+    surfaceplot = ax.plot_surface(x1, x2, nnYArr, rstride=1, cstride=1, cmap=cm.viridis, alpha=0.8, linewidth=0,
                                   antialiased=False)
     ax.view_init(45, 45)
     ax.set_xlabel('x1')
@@ -278,7 +295,6 @@ def nn3dSurface():
     ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
     fig.colorbar(surfaceplot, shrink=0.5)
     plt.show()
-
 
 
 toolbox = base.Toolbox()
@@ -438,7 +454,6 @@ def main():
 
             length = len(pop)
 
-
     # plot the fittest chromosome of each generation
     plotFitness(best_fitness, gen)
     print(min(best_fitness))
@@ -447,7 +462,7 @@ def main():
     plotFitness(test_score, gen)
     print(min(test_score))
 
-    nn3dSurface()
+    nn3dSurface(best_ind)
 
 
 if __name__ == "__main__":
