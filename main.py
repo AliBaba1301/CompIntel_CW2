@@ -210,6 +210,9 @@ def real2Chrom(weights):
         numInBits = integer  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
         chroms.append(gray)  # append to chromosome list
+        chroms = list(''.join(chroms))
+        for i in range(len(chroms)):
+            chroms[i] = int(chroms[i])
 
     return chroms
 
