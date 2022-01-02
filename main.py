@@ -18,11 +18,11 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 10000
+generations = 10
 cxPB = 0.6
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
-mutatePB = 0.1
+mutatePB = 0.5
 nElitists = 1
 dspInterval = 1
 
@@ -172,7 +172,7 @@ def chrom2real(c):
     indasstring = ''.join(map(str, c))
     degray = gray_to_bin(indasstring)
     numasint = int(degray, 2)  # convert to int from base 2 list
-    numinrange = round(minRange + (maxRange - minRange) * numasint / maxnum, 7)
+    numinrange = (minRange + (maxRange - minRange) * numasint / maxnum)
     # ensures the weights are in the range of -20 and 20
     if numinrange > maxRange:
         numinrange = maxRange
@@ -190,29 +190,26 @@ def real2Chrom(weights):
     chroms = []
 
     for i in range(len(weights)):
-
         # ensures the weights are in the range of -20 and 20
-        if weights[i] > maxRange:
-            weights[i] = maxRange
-        elif weights[i] < minRange:
-            weights[i] = minRange
+        if weights[i] >= maxRange:
+            weights[i] = int(maxRange)
+        elif weights[i] <= minRange:
+            weights[i] = int(minRange)
 
+        print(weights[i])
         # rounding value to prevent overflow and value between 0 and 1
-        numPrepped = round(((weights[i] + maxRange) / (maxRange - minRange) * maxnum))
-
+        numPrepped = ((weights[i] + maxRange) / (maxRange - minRange) * maxnum)
         # convert the integer part to binary
         integer = bin(int(numPrepped))[2:]
-
         # pad the binary with 0's to make it the correct length
         integer = integer.zfill(numOfBits)
-
         # combine the two parts into one string
         numInBits = integer  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
+        if (len(gray) > numOfBits):
+            gray = gray[1:]
         chroms.append(gray)  # append to chromosome list
         chroms = list(''.join(chroms))
-        for i in range(len(chroms)):
-            chroms[i] = int(chroms[i])
 
     return chroms
 
@@ -466,6 +463,21 @@ def main():
     print(min(test_score))
 
     nn3dSurface(best_ind)
+
+    # test the real2chrom method
+    # r2cInput = weightsOutofNetwork(main_net)
+    r2cInput = [6, 18, -19.2323, -20.233, -24, 19.9999999, 23, 20.00001]
+    test_chrom = real2Chrom(r2cInput)
+    test_chrom = reformList(test_chrom, len(r2cInput), 30)
+    output_weights = []
+
+    for i in test_chrom:
+        output = chrom2real(i)
+        output_weights.append(output)
+
+    print("chromosome: ", test_chrom)
+    print("test input: ", r2cInput)
+    print("test output: ", output_weights)
 
 
 if __name__ == "__main__":
