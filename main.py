@@ -201,8 +201,10 @@ def real2Chrom(weights):
         numPrepped = ((weights[i] + maxRange) / (maxRange - minRange) * maxnum)
         # convert the integer part to binary
         integer = bin(int(numPrepped))[2:]
+
         # pad the binary with 0's to make it the correct length
         integer = integer.zfill(numOfBits)
+        integer = integer
         # combine the two parts into one string
         numInBits = integer  # convert value to base 2
         gray = bin_to_gray(numInBits)  # convert to gray code
@@ -467,6 +469,7 @@ def main():
     # test the real2chrom method
     # r2cInput = weightsOutofNetwork(main_net)
     r2cInput = [6, 18, -19.2323, -20.233, -24, 19.9999999, 23, 20.00001]
+    r2cInput = np.asarray(r2cInput)
     test_chrom = real2Chrom(r2cInput)
     test_chrom = reformList(test_chrom, len(r2cInput), 30)
     output_weights = []
