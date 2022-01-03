@@ -18,7 +18,7 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 10
+generations = 10000
 cxPB = 0.7
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
@@ -372,7 +372,8 @@ def bla(ind):
 def plotBlavsLla(blaList, llaList,title):
     plt.plot(blaList, 'r', label='Baldwinian')
     plt.plot(llaList, 'b', label='Lamarckian')
-    plt.title('Baldwinian vs Lamarckian Learning' , title)
+    title = 'Baldwinian vs Lamarckian Learning ' + title
+    plt.title(title)
     plt.xlabel('Generation')
     plt.ylabel('Fitness')
     plt.legend()
@@ -606,7 +607,7 @@ def main():
     plotFitness(test_score_bla, gen)
     print(min(test_score_bla))
 
-    nn3dSurface(best_fitness_bla)
+    nn3dSurface(best_ind_bla)
 
     plotBlavsLla(best_fitness_bla, best_fitness, 'Training')
     plotBlavsLla(test_score_bla, test_score, 'Test')
