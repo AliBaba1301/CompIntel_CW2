@@ -18,7 +18,7 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 10000
+generations = 10
 cxPB = 0.7
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
@@ -367,7 +367,7 @@ def bla(ind):
         j += 1
     # convert weights to a new gray coded individual
 
-    return current_error.item()
+    return current_error.item(),
 
 def plotBlavsLla(blaList, llaList,title):
     plt.plot(blaList, 'r', label='Baldwinian')
@@ -493,8 +493,8 @@ def main():
 
         # apply baldwinian evolution to the population
         fitnesses_bla = list(map(bla, popbla))
-        for ind, fit in zip(pop, fitnesses_bla):
-            ind.fitness.values = fit
+        for ind, fit_bla in zip(pop, fitnesses_bla):
+            ind.fitness.values = fit_bla
 
         # Select the next generation individuals
         offspring = tools.selBest(pop, nElitists) + toolbox.select(pop, len(pop) - nElitists)
