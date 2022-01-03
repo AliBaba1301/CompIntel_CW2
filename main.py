@@ -18,8 +18,8 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 1000
-cxPB = 0.3
+generations = 100
+cxPB = 0.7
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
 mutatePB = 0.1
@@ -317,8 +317,9 @@ def lla(ind):
     # grab the weights from the network
     new_weights = weightsOutofNetwork(main_net)
 
-    optimizer = torch.optim.rprop(main_net.parameters(), lr=0.001)
-    while i < 30:  # run 30 iterations of optimization to find better weights
+    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.005)
+    j = 0
+    while j < 30:  # run 30 iterations of optimization to find better weights
         new_out = main_net(inputTensor[:1000])  # input training data and predict network output based on data
         new_error = loss(new_out, targetTensor[:1000])  # compare output with labeled data
         optimizer.zero_grad()  # clear gradients for next train
@@ -327,11 +328,46 @@ def lla(ind):
         if current_error > new_error:  # update weights if loss result is better
             new_weights = weightsOutofNetwork(main_net)
             current_error = new_error
-        i += 1
+        j += 1
     # convert weights to a new gray coded individual
     newInd = real2Chrom(new_weights)
     return newInd
 
+# method for implementing Baldwinian learning
+def bla(ind):
+    # convert chromosomes to real numbers
+    chroms = reformList(ind, 67, 30)
+    weights = []
+    for i in chroms:
+        weights.append(chrom2real(i))
+
+    weights = np.asarray(weights)
+    # set the weights of the network to the weights in the chromosome
+    weightsIntoNetwork(weights, main_net)
+
+    # get the output of the network
+    original_output = main_net(inputTensor[:1000])
+    # get error for the original weights
+    current_error = loss(original_output.reshape(-1), targetTensor[:1000])
+
+    # grab the weights from the network
+    new_weights = weightsOutofNetwork(main_net)
+
+    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.002)
+    j = 0
+    while j < 30:  # run 30 iterations of optimization to find better weights
+        new_out = main_net(inputTensor[:1000])  # input training data and predict network output based on data
+        new_error = loss(new_out, targetTensor[:1000])  # compare output with labeled data
+        optimizer.zero_grad()  # clear gradients for next train
+        new_error.backward()  # backpropagation, compute gradients
+        optimizer.step()  # apply gradients
+        if current_error > new_error:  # update weights if loss result is better
+            new_weights = weightsOutofNetwork(main_net)
+            current_error = new_error
+        j += 1
+    # convert weights to a new gray coded individual
+
+    return current_error.item()
 
 
 
@@ -433,9 +469,17 @@ def main():
         g = g + 1
         print("-- Generation %i --" % g)
 
-        # # apply lamarckian evolution to the population
-        # for ind in pop:
-        #     lla(ind)
+        # apply lamarckian evolution to the population
+        for ind in pop:
+            ind = lla(ind)
+        fitnesses = list(map(toolbox.evaluate, pop))
+        for ind, fit in zip(pop, fitnesses):
+            ind.fitness.values = fit
+
+        # # apply baldwinian evolution to the population
+        # fitnesses = list(map(bla, pop))
+        # for ind, fit in zip(pop, fitnesses):
+        #     ind.fitness.values = fit
 
         # Select the next generation individuals
         offspring = tools.selBest(pop, nElitists) + toolbox.select(pop, len(pop) - nElitists)
