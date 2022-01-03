@@ -18,11 +18,11 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 100
+generations = 10000
 cxPB = 0.7
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
-mutatePB = 0.1
+mutatePB = 0.2
 nElitists = 1
 dspInterval = 1
 
@@ -317,7 +317,7 @@ def lla(ind):
     # grab the weights from the network
     new_weights = weightsOutofNetwork(main_net)
 
-    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.005)
+    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.003)
     j = 0
     while j < 30:  # run 30 iterations of optimization to find better weights
         new_out = main_net(inputTensor[:1000])  # input training data and predict network output based on data
@@ -353,7 +353,7 @@ def bla(ind):
     # grab the weights from the network
     new_weights = weightsOutofNetwork(main_net)
 
-    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.002)
+    optimizer = torch.optim.Rprop(main_net.parameters(), lr=0.003)
     j = 0
     while j < 30:  # run 30 iterations of optimization to find better weights
         new_out = main_net(inputTensor[:1000])  # input training data and predict network output based on data
@@ -368,6 +368,15 @@ def bla(ind):
     # convert weights to a new gray coded individual
 
     return current_error.item()
+
+def plotBlavsLla(blaList, llaList,title):
+    plt.plot(blaList, 'r', label='Baldwinian')
+    plt.plot(llaList, 'b', label='Lamarckian')
+    plt.title('Baldwinian vs Lamarckian Learning' , title)
+    plt.xlabel('Generation')
+    plt.ylabel('Fitness')
+    plt.legend()
+    plt.show()
 
 
 
@@ -443,20 +452,26 @@ def main():
     # creating a population of chromosomes
 
     pop = toolbox.population(n=100)  # Population Size
+    popbla = pop
     gen = []
     best_fitness = []
+    best_fitness_bla = []
     test_score = []
+    test_score_bla = []
 
     # Evaluate the entire population
     fitnesses = list(map(toolbox.evaluate, pop))
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
 
+    fitnesses_bla = list(map(toolbox.evaluate, popbla))
+    for ind, fit in zip(popbla, fitnesses_bla):
+        ind.fitness.values = fit
+
     print("  Evaluated %i individuals" % len(pop))
 
     # Extracting all the fitnesses of
     fits = [ind.fitness.values[0] for ind in pop]
-
     bestInitial = tools.selBest(pop, 1)[0].fitness.values[0]
 
     # Variable keeping track of the number of generations
@@ -476,10 +491,10 @@ def main():
         for ind, fit in zip(pop, fitnesses):
             ind.fitness.values = fit
 
-        # # apply baldwinian evolution to the population
-        # fitnesses = list(map(bla, pop))
-        # for ind, fit in zip(pop, fitnesses):
-        #     ind.fitness.values = fit
+        # apply baldwinian evolution to the population
+        fitnesses_bla = list(map(bla, popbla))
+        for ind, fit in zip(pop, fitnesses_bla):
+            ind.fitness.values = fit
 
         # Select the next generation individuals
         offspring = tools.selBest(pop, nElitists) + toolbox.select(pop, len(pop) - nElitists)
@@ -493,8 +508,6 @@ def main():
         best_fitness.append(fitnessForBestIndividual)
         # adding test score of best individual to list
         test_score.append(evaluateTest(best_ind))
-
-
 
         # Apply crossover and mutation on the offspring
         # make pairs of offspring for crossing over
@@ -527,6 +540,49 @@ def main():
         # The population is entirely replaced by the offspring
         pop[:] = offspring
 
+        # Select the next generation individuals
+        offspring_bla = tools.selBest(popbla, nElitists) + toolbox.select(popbla, len(popbla) - nElitists)
+        # Clone the selected individuals
+        offspring_bla = list(map(toolbox.clone, offspring_bla))
+
+        # Selecting the best individual from the population
+        best_ind_bla = tools.selBest(popbla, 1)[0]
+        fitnessForBestBlaIndividual = best_ind_bla.fitness.values
+        # adding fitness of best individual to list
+        best_fitness_bla.append(fitnessForBestBlaIndividual)
+        # adding test score of best individual to list
+        test_score_bla.append(evaluateTest(best_ind_bla))
+
+        # Apply crossover and mutation on the offspring
+        # make pairs of offspring for crossing over
+        for child1, child2 in zip(offspring_bla[::2], offspring_bla[1::2]):
+
+            # cross two individuals with probability CXPB
+            if r.random() < cxPB:
+                # print('before crossover ',child1, child2)
+                toolbox.mate(child1, child2)
+                # print('after crossover ',child1, child2)
+
+                # fitness values of the children
+                # must be recalculated later
+                del child1.fitness.values
+                del child2.fitness.values
+
+        for mutant_bla in offspring_bla:
+            # mutate an individual with probability mutateprob
+            if r.random() < mutatePB:
+                toolbox.mutate(mutant_bla)
+                del mutant_bla.fitness.values
+
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in offspring_bla if not ind.fitness.valid]
+        fitnesses_bla = map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses_bla):
+            ind.fitness.values = fit
+
+        # The population is entirely replaced by the offspring
+        popbla[:] = offspring_bla
+
         if g % dspInterval == 0:
             # Gather all the fitnesses in one list and print the stats
             fits = [ind.fitness.values[0] for ind in pop]
@@ -542,6 +598,19 @@ def main():
     print(min(test_score))
 
     nn3dSurface(best_ind)
+
+    plotFitness(best_fitness_bla, gen)
+    print(min(best_fitness_bla))
+
+    # plot the test score of each generation
+    plotFitness(test_score_bla, gen)
+    print(min(test_score_bla))
+
+    nn3dSurface(best_fitness_bla)
+
+    plotBlavsLla(best_fitness_bla, best_fitness, 'Training')
+    plotBlavsLla(test_score_bla, test_score, 'Test')
+
 
     # test the real2chrom method
     # r2cInput = weightsOutofNetwork(main_net)
