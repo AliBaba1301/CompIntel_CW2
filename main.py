@@ -18,11 +18,11 @@ dimensions = 67
 maxnum = (2 ** numOfBits)
 minRange = -20
 maxRange = 20
-generations = 10
-cxPB = 0.6
+generations = 1000
+cxPB = 0.3
 loss = nn.MSELoss()
 flipPB = 1 / (dimensions * numOfBits)
-mutatePB = 0.5
+mutatePB = 0.1
 nElitists = 1
 dspInterval = 1
 
@@ -196,7 +196,6 @@ def real2Chrom(weights):
         elif weights[i] <= minRange:
             weights[i] = int(minRange)
 
-        print(weights[i])
         # rounding value to prevent overflow and value between 0 and 1
         numPrepped = ((weights[i] + maxRange) / (maxRange - minRange) * maxnum)
         # convert the integer part to binary
@@ -298,6 +297,43 @@ def nn3dSurface(chrom):
     fig.colorbar(surfaceplot, shrink=0.5)
     plt.show()
 
+# method for implementing Lamarckian learning
+def lla(ind):
+    # convert chromosomes to real numbers
+    chroms = reformList(ind, 67, 30)
+    weights = []
+    for i in chroms:
+        weights.append(chrom2real(i))
+
+    weights = np.asarray(weights)
+    # set the weights of the network to the weights in the chromosome
+    weightsIntoNetwork(weights, main_net)
+
+    # get the output of the network
+    original_output = main_net(inputTensor[:1000])
+    # get error for the original weights
+    current_error = loss(original_output.reshape(-1), targetTensor[:1000])
+
+    # grab the weights from the network
+    new_weights = weightsOutofNetwork(main_net)
+
+    optimizer = torch.optim.rprop(main_net.parameters(), lr=0.001)
+    while i < 30:  # run 30 iterations of optimization to find better weights
+        new_out = main_net(inputTensor[:1000])  # input training data and predict network output based on data
+        new_error = loss(new_out, targetTensor[:1000])  # compare output with labeled data
+        optimizer.zero_grad()  # clear gradients for next train
+        new_error.backward()  # backpropagation, compute gradients
+        optimizer.step()  # apply gradients
+        if current_error > new_error:  # update weights if loss result is better
+            new_weights = weightsOutofNetwork(main_net)
+            current_error = new_error
+        i += 1
+    # convert weights to a new gray coded individual
+    newInd = real2Chrom(new_weights)
+    return newInd
+
+
+
 
 toolbox = base.Toolbox()
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -377,9 +413,7 @@ def main():
 
     # Evaluate the entire population
     fitnesses = list(map(toolbox.evaluate, pop))
-    # print(fitnesses)
     for ind, fit in zip(pop, fitnesses):
-        # print(ind, fit)
         ind.fitness.values = fit
 
     print("  Evaluated %i individuals" % len(pop))
@@ -398,8 +432,10 @@ def main():
         gen.append(g)
         g = g + 1
         print("-- Generation %i --" % g)
-        #         for individ in pop:
-        #             print(individ)
+
+        # # apply lamarckian evolution to the population
+        # for ind in pop:
+        #     lla(ind)
 
         # Select the next generation individuals
         offspring = tools.selBest(pop, nElitists) + toolbox.select(pop, len(pop) - nElitists)
@@ -414,8 +450,7 @@ def main():
         # adding test score of best individual to list
         test_score.append(evaluateTest(best_ind))
 
-        #         for individ in offspring:
-        #             print(individ)
+
 
         # Apply crossover and mutation on the offspring
         # make pairs of offspring for crossing over
@@ -445,8 +480,6 @@ def main():
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        # print("  Evaluated %i individuals" % len(invalid_ind))
-
         # The population is entirely replaced by the offspring
         pop[:] = offspring
 
@@ -470,16 +503,16 @@ def main():
     # r2cInput = weightsOutofNetwork(main_net)
     r2cInput = [6, 18, -19.2323, -20.233, -24, 19.9999999, 23, 20.00001]
     r2cInput = np.asarray(r2cInput)
-    test_chrom = real2Chrom(r2cInput)
-    test_chrom = reformList(test_chrom, len(r2cInput), 30)
+    output_chrom = real2Chrom(r2cInput)
+    test_chrom = reformList(output_chrom, len(r2cInput), 30)
     output_weights = []
 
     for i in test_chrom:
         output = chrom2real(i)
         output_weights.append(output)
 
-    print("chromosome: ", test_chrom)
-    print("test input: ", r2cInput)
+    print("chromosome: ", output_chrom)
+    print("test input: ", [6, 18, -19.2323, -20.233, -24, 19.9999999, 23, 20.00001])
     print("test output: ", output_weights)
 
 
